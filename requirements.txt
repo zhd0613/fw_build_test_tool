@@ -1,0 +1,17 @@
+# 项目依赖
+# 功能：
+# 记录项目所需的Python库及其版本
+
+# 依赖库：
+# - paramiko: 用于SSH连接和文件传输
+# - requests: 用于HTTP请求和结果上传
+# - openai: 用于调用LLM模型API
+# - tkinter: 用于创建GUI界面（Python标准库）
+# - threading: 用于后台执行任务（Python标准库）
+
+# 安装命令：
+# pip install -r requirements.txt
+
+paramiko
+requests
+openai
