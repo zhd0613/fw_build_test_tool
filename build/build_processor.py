@@ -246,15 +246,56 @@ class BuildProcessor:
         return result
     
     def handle_build_error(self, error_message: str, stream_callback=None) -> str:
-        """
-        处理编译错误
-        参数：
-            error_message - 错误信息
-            stream_callback - 流式输出回调
-        返回：错误分析结果
-        """
         analysis_result = self.error_analyzer.analyze_build_error(error_message, stream_callback=stream_callback)
         return analysis_result
+    
+    def get_git_log(self, project_path=None, count=100):
+        """
+        从编译服务器获取 git log
+        参数：
+            project_path - 项目路径
+            count - 获取的提交数量
+        返回：提交列表，每项为 "hash message" 格式
+        """
+        path = project_path or self.project_path
+        ssh_client = self.connection_pool.get_connection(
+            self.build_server_config["host"],
+            self.build_server_config["port"],
+            self.build_server_config["username"],
+            self.build_server_config["password"]
+        )
+        command = f"cd {path} && git log --oneline -{count}"
+        self.log(f"$ {command}")
+        success, stdout, stderr = ssh_client.execute_command(command)
+        if success and stdout.strip():
+            lines = [line.strip() for line in stdout.strip().split('\n') if line.strip()]
+            return lines
+        self.log(f"获取git log失败: {stderr}")
+        return []
+    
+    def git_reset_to_commit(self, commit_hash, project_path=None):
+        """
+        在编译服务器上 git reset 到指定 commit
+        参数：
+            commit_hash - 目标 commit hash
+            project_path - 项目路径
+        返回：(是否成功, 错误信息)
+        """
+        path = project_path or self.project_path
+        ssh_client = self.connection_pool.get_connection(
+            self.build_server_config["host"],
+            self.build_server_config["port"],
+            self.build_server_config["username"],
+            self.build_server_config["password"]
+        )
+        command = f"cd {path} && git reset {commit_hash} --hard"
+        self.log(f"$ {command}")
+        success, stdout, stderr = ssh_client.execute_command(command)
+        if success:
+            self.log(f"git reset 到 {commit_hash} 成功")
+            return True, None
+        self.log(f"git reset 失败: {stderr}")
+        return False, stderr
 
 # 全局编译处理器实例
 build_processor = BuildProcessor()

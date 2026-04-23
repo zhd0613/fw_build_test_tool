@@ -71,7 +71,13 @@ class Application:
         """
         print(message, end=end)
         if self.current_step in self.log_files:
-            self.log_files[self.current_step].write(message + end)
+            from datetime import datetime
+            ts = datetime.now().strftime("[%Y %#m/%#d %H:%M:%S] ")
+            for line in (message + end).split('\n'):
+                if line.strip():
+                    self.log_files[self.current_step].write(ts + line + '\n')
+                else:
+                    self.log_files[self.current_step].write('\n')
             self.log_files[self.current_step].flush()
         if self.log_callback:
             self.log_callback(message + end)
@@ -143,6 +149,21 @@ class Application:
             stream_callback = self._get_stream_callback()
             error_analysis = self.build_processor.handle_build_error(build_error, stream_callback=stream_callback)
         return build_success, output_path, build_error
+    
+    def get_git_log(self, project_path=None, count=100):
+        """
+        获取编译服务器的 git log
+        """
+        self.current_step = "编译"
+        return self.build_processor.get_git_log(project_path=project_path, count=count)
+    
+    def git_reset_to_commit(self, commit_hash, project_path=None):
+        """
+        在编译服务器上 git reset 到指定 commit
+        """
+        self.current_step = "编译"
+        self.log(f"追溯版本: git reset 到 {commit_hash}")
+        return self.build_processor.git_reset_to_commit(commit_hash, project_path=project_path)
     
     def download_output(self, output_path: str):
         """
@@ -468,7 +489,7 @@ class Application:
         uart_thread.daemon = True
         uart_thread.start()
     
-    def execute_workflow(self, username: str, test_device: str, test_script: str, project_path: str = "/home/YOUR_USERNAME/firmware/", project_name: str = "YOUR_PROJECT", sku: str = "YOUR_SKU", start_step: str = "编译", collect_uart: bool = True, flash_type: str = "ncmt", stop_event=None, test_case: str = "", other_param: str = "", upload_result: bool = False, version: str = "", test_mode: str = "QA 脚本测试", fio_requirement: str = "", fio_commands: list = None, extra_scripts: list = None):
+    def execute_workflow(self, username: str, test_device: str, test_script: str, project_path: str = "/home/YOUR_USERNAME/firmware/", project_name: str = "YOUR_PROJECT", sku: str = "YOUR_SKU", start_step: str = "编译", collect_uart: bool = True, flash_type: str = "ncmt", stop_event=None, test_case: str = "", other_param: str = "", upload_result: bool = False, version: str = "", test_mode: str = "QA 脚本测试", fio_requirement: str = "", fio_commands: list = None, extra_scripts: list = None, show_popup: bool = True):
         """
         执行整个工作流程
         参数：
@@ -630,7 +651,8 @@ class Application:
                     return False
                 
                 self.log("自定义FIO测试流程执行完成")
-                self._show_completion_popup(upload_result)
+                if show_popup:
+                    self._show_completion_popup(upload_result)
                 return True
             
             # QA脚本测试流程
@@ -816,7 +838,8 @@ class Application:
                         return False
                     
                 self.log("工作流程执行完成")
-                self._show_completion_popup(upload_result)
+                if show_popup:
+                    self._show_completion_popup(upload_result)
                 return True
         except Exception as e:
             self.handle_exception(e)
